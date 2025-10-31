@@ -293,27 +293,22 @@ public class TradingArenaApp : ViewBase
 
     private async Task<object> BuildPortfolioChartAsync(List<Position> positionHistory)
     {
-        var chartData = new List<object>();
+        var chartData = new List<(DateTime Date, decimal PortfolioValue)>();
         
-        foreach (var p in positionHistory)
+        foreach (var p in positionHistory.OrderBy(p => p.Date))
         {
             var prices = _stockDataService != null 
                 ? await _stockDataService.GetPricesForDateAsync(p.Date)
                 : new Dictionary<string, StockPrice>();
             var portfolioValue = p.GetPortfolioValue(prices.ToDictionary(pr => pr.Key, pr => pr.Value.Close));
-            chartData.Add(new
-            {
-                Date = p.Date,
-                PortfolioValue = portfolioValue
-            });
+            chartData.Add((p.Date, portfolioValue));
         }
 
-        var sortedData = chartData
-            .Cast<dynamic>()
-            .OrderBy(d => d.Date)
+        var chartArray = chartData
+            .Select(d => new { Date = d.Date, PortfolioValue = d.PortfolioValue })
             .ToArray();
 
-        return sortedData.ToLineChart(style: LineChartStyles.Dashboard)
+        return chartArray.ToLineChart(style: LineChartStyles.Dashboard)
             .Dimension("Date", e => e.Date)
             .Measure("PortfolioValue", e => e.Sum(f => f.PortfolioValue));
     }
