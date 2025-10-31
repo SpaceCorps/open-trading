@@ -125,14 +125,35 @@ public class StockDataService : IStockDataService
         var symbols = await GetSymbolsAsync();
         var prices = new Dictionary<string, StockPrice>();
         
-        foreach (var symbol in symbols)
+        _logger.LogDebug("Fetching prices for {Count} symbols on {Date}", symbols.Count, date);
+        
+        // Use parallel processing for better performance
+        var tasks = symbols.Select(async symbol =>
         {
-            var price = await GetPriceAsync(symbol, date);
-            if (price != null)
+            try
             {
-                prices[symbol] = price;
+                var price = await GetPriceAsync(symbol, date);
+                return new { Symbol = symbol, Price = price };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to get price for {Symbol} on {Date}", symbol, date);
+                return new { Symbol = symbol, Price = (StockPrice?)null };
+            }
+        });
+
+        var results = await Task.WhenAll(tasks);
+        
+        foreach (var result in results)
+        {
+            if (result.Price != null)
+            {
+                prices[result.Symbol] = result.Price;
             }
         }
+        
+        _logger.LogDebug("Successfully fetched prices for {Count}/{Total} symbols on {Date}", 
+            prices.Count, symbols.Count, date);
         
         return prices;
     }

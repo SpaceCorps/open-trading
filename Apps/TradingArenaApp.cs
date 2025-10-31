@@ -106,7 +106,7 @@ public class TradingArenaApp : ViewBase
                         | Text.Block("Running simulation... Please wait.")
                         | Text.Block("This may take a few moments depending on the number of agents and trading days.")
                 )
-                : BuildAgentPerformanceView(selectedDate.Value, selectedAgent.Value))
+                : BuildAgentPerformanceViewAsync(selectedDate.Value, selectedAgent.Value).Result)
             | new Card(
                 Layout.Vertical()
                     .Gap(2)
@@ -117,20 +117,24 @@ public class TradingArenaApp : ViewBase
                 .Width(Size.Units(120).Max(1000));
     }
 
-    private object? BuildAgentPerformanceView(DateTime date, string agentId)
+    private async Task<object?> BuildAgentPerformanceViewAsync(DateTime date, string agentId)
     {
-        if (_positionService == null || _stockDataService == null || _logService == null)
+        if (_positionService == null || _stockDataService == null || _logService == null || _configService == null)
             return Text.Block("Services not initialized");
 
-        var position = _positionService.GetCurrentPositionAsync(agentId, date).Result;
+        var position = await _positionService.GetCurrentPositionAsync(agentId, date);
         if (position == null)
             return Text.Block($"No position data available for agent {agentId} on {date:yyyy-MM-dd}");
 
-        var prices = _stockDataService.GetPricesForDateAsync(date).Result;
-        var logs = _logService.GetLogsAsync(agentId, date).Result;
+        var prices = await _stockDataService.GetPricesForDateAsync(date);
+        var logs = await _logService.GetLogsAsync(agentId, date);
         var portfolioValue = position.GetPortfolioValue(
             prices.ToDictionary(p => p.Key, p => p.Value.Close));
 
+        // Get position history for chart
+        var config = await _configService.LoadConfigAsync();
+        var positionHistory = await _positionService.GetPositionHistoryAsync(agentId, config.DateRange.InitDate, date);
+        
         return Layout.Vertical()
             .Gap(4)
             | new Card(
@@ -152,6 +156,16 @@ public class TradingArenaApp : ViewBase
                             | Text.Large($"${portfolioValue - position.Cash:F2}"))
                 )
                 .Width(Size.Units(120).Max(1000))
+            | (positionHistory.Count > 1
+                ? new Card(
+                    Layout.Vertical()
+                        .Gap(2)
+                        | Text.H3("Portfolio Value Over Time")
+                        | BuildPortfolioChartAsync(positionHistory).Result
+                    )
+                    .Width(Size.Units(120).Max(1000))
+                    .Height(Size.Units(30))
+                : null)
             | new Card(
                 Layout.Vertical()
                     .Gap(2)
@@ -275,6 +289,33 @@ public class TradingArenaApp : ViewBase
 
         var agentIds = enabledAgents.Select(a => a.Name).ToList();
         await _simulationService.RunMultiAgentSimulationAsync(date, agentIds, agentConfigs);
+    }
+
+    private async Task<object> BuildPortfolioChartAsync(List<Position> positionHistory)
+    {
+        var chartData = new List<object>();
+        
+        foreach (var p in positionHistory)
+        {
+            var prices = _stockDataService != null 
+                ? await _stockDataService.GetPricesForDateAsync(p.Date)
+                : new Dictionary<string, StockPrice>();
+            var portfolioValue = p.GetPortfolioValue(prices.ToDictionary(pr => pr.Key, pr => pr.Value.Close));
+            chartData.Add(new
+            {
+                Date = p.Date,
+                PortfolioValue = portfolioValue
+            });
+        }
+
+        var sortedData = chartData
+            .Cast<dynamic>()
+            .OrderBy(d => d.Date)
+            .ToArray();
+
+        return sortedData.ToLineChart(style: LineChartStyles.Dashboard)
+            .Dimension("Date", e => e.Date)
+            .Measure("PortfolioValue", e => e.Sum(f => f.PortfolioValue));
     }
 
     private async Task RunDateRangeSimulationAsync(DateTime startDate, DateTime endDate)

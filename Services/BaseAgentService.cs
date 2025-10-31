@@ -72,8 +72,8 @@ public class BaseAgentService : IAgentService
 
             try
             {
-                _logger.LogDebug("Agent {AgentId} step {Step}/{MaxSteps} on {Date}", 
-                    agentId, step + 1, config.MaxSteps, date);
+        _logger.LogInformation("Agent {AgentId} step {Step}/{MaxSteps} on {Date}", 
+            agentId, step + 1, config.MaxSteps, date);
                 
                 var action = await DecideActionAsync(context);
                 
