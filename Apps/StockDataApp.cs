@@ -20,29 +20,25 @@ public class StockDataApp : ViewBase
         return Layout.Vertical()
             .Gap(4)
             .Padding(2)
-            | new Card(
-                Layout.Vertical()
-                    .Gap(3)
-                    | Text.H2("Stock Price Data")
-                    | Layout.Horizontal()
-                        .Gap(2)
-                        | (Layout.Vertical()
-                            | Text.Small("Symbol")
-                            | selectedSymbol.ToSelectInput(symbols.Take(50).ToOptions()))
-                        | (Layout.Vertical()
-                            | Text.Small("Start Date")
-                            | startDate.ToDateInput())
-                        | (Layout.Vertical()
-                            | Text.Small("End Date")
-                            | endDate.ToDateInput())
-                        | new Button("Load Data",
-                            onClick: async (Event<Button> e) =>
-                            {
-                                await _stockDataService?.LoadOrFetchDataAsync(startDate.Value, endDate.Value)!;
-                            },
-                            variant: ButtonVariant.Primary)
-                )
-                .Width(Size.Units(120).Max(1000))
+            | Text.H2("Stock Price Data")
+            | Layout.Horizontal()
+                .Gap(2)
+                | (Layout.Vertical()
+                    | Text.Small("Symbol")
+                    | selectedSymbol.ToSelectInput(symbols.Take(50).ToOptions()))
+                | (Layout.Vertical()
+                    | Text.Small("Start Date")
+                    | startDate.ToDateInput())
+                | (Layout.Vertical()
+                    | Text.Small("End Date")
+                    | endDate.ToDateInput())
+                | new Button("Load Data",
+                    onClick: async (Event<Button> e) =>
+                    {
+                        await _stockDataService?.LoadOrFetchDataAsync(startDate.Value, endDate.Value)!;
+                    },
+                    variant: ButtonVariant.Primary)
+            | new Separator()
             | BuildStockDataView(selectedSymbol.Value, startDate.Value, endDate.Value);
     }
 
@@ -54,26 +50,15 @@ public class StockDataApp : ViewBase
         var prices = _stockDataService.GetDailyPricesAsync(symbol, startDate, endDate).Result;
         
         if (!prices.Any())
-            return new Card(Text.Block($"No price data available for {symbol} in the selected date range"));
+            return Text.Block($"No price data available for {symbol} in the selected date range");
 
         return Layout.Vertical()
             .Gap(4)
-            | new Card(
-                Layout.Vertical()
-                    .Gap(2)
-                    | Text.H3($"Price Chart: {symbol}")
-                    | BuildPriceChart(prices)
-                )
-                .Width(Size.Units(120).Max(1000))
-                .Height(Size.Units(40))
-            | new Card(
-                Layout.Vertical()
-                    .Gap(2)
-                    | Text.H3("Price Data Table")
-                    | BuildPriceTable(prices)
-                )
-                .Width(Size.Units(120).Max(1000))
-                .Height(Size.Units(40));
+            | Text.H3($"Price Chart: {symbol}")
+            | BuildPriceChart(prices)
+            | new Separator()
+            | Text.H3("Price Data Table")
+            | BuildPriceTable(prices);
     }
 
     private object BuildPriceChart(List<StockPrice> prices)

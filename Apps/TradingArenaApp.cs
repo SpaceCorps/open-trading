@@ -35,55 +35,51 @@ public class TradingArenaApp : ViewBase
         return Layout.Vertical()
             .Gap(4)
             .Padding(2)
-            | new Card(
-                Layout.Vertical()
-                    .Gap(3)
-                    .Padding(2)
-                    | Text.H2("AI Trading Arena")
-                    | Text.Block("Watch multiple AI agents compete in stock trading")
-                    | new Separator()
+            | Text.H2("AI Trading Arena")
+            | Text.Block("Watch multiple AI agents compete in stock trading")
+            | new Separator()
+            | Layout.Horizontal()
+                .Gap(2)
+                | (Layout.Vertical()
+                    | Text.Small("Start Date")
+                    | selectedDate.ToDateInput())
+                | (Layout.Vertical()
+                    | Text.Small("Agent")
+                    | selectedAgent.ToSelectInput(
+                        config.Models.Where(m => m.Enabled).Select(m => m.Name).ToOptions()))
+                | new Button("Run Single Agent", 
+                    onClick: async (Event<Button> e) =>
+                    {
+                        isRunning.Set(true);
+                        await RunSimulationAsync(selectedDate.Value, selectedAgent.Value);
+                        isRunning.Set(false);
+                    },
+                    variant: ButtonVariant.Primary)
+                    .Disabled(isRunning.Value)
+                | new Button("Run All Agents", 
+                    onClick: async (Event<Button> e) =>
+                    {
+                        isRunning.Set(true);
+                        await RunMultiAgentSimulationAsync(selectedDate.Value);
+                        isRunning.Set(false);
+                    },
+                    variant: ButtonVariant.Secondary)
+                    .Disabled(isRunning.Value)
+                | new Button("Run Date Range Simulation",
+                    onClick: (Event<Button> e) => { runDateRange.Set(true); },
+                    variant: ButtonVariant.Outline)
+            | (runDateRange.Value
+                ? Layout.Vertical()
+                    .Gap(2)
+                    | Text.H3("Date Range Simulation")
                     | Layout.Horizontal()
                         .Gap(2)
                         | (Layout.Vertical()
                             | Text.Small("Start Date")
-                            | selectedDate.ToDateInput())
+                            | startDate.ToDateInput())
                         | (Layout.Vertical()
-                            | Text.Small("Agent")
-                            | selectedAgent.ToSelectInput(
-                                config.Models.Where(m => m.Enabled).Select(m => m.Name).ToOptions()))
-                        | new Button("Run Single Agent", 
-                            onClick: async (Event<Button> e) =>
-                            {
-                                isRunning.Set(true);
-                                await RunSimulationAsync(selectedDate.Value, selectedAgent.Value);
-                                isRunning.Set(false);
-                            },
-                            variant: ButtonVariant.Primary)
-                            .Disabled(isRunning.Value)
-                        | new Button("Run All Agents", 
-                            onClick: async (Event<Button> e) =>
-                            {
-                                isRunning.Set(true);
-                                await RunMultiAgentSimulationAsync(selectedDate.Value);
-                                isRunning.Set(false);
-                            },
-                            variant: ButtonVariant.Secondary)
-                            .Disabled(isRunning.Value)
-                )
-                .Width(Size.Units(120).Max(1000))
-            | (runDateRange.Value
-                ? new Card(
-                    Layout.Vertical()
-                        .Gap(2)
-                        | Text.H3("Date Range Simulation")
-                        | Layout.Horizontal()
-                            .Gap(2)
-                            | (Layout.Vertical()
-                                | Text.Small("Start Date")
-                                | startDate.ToDateInput())
-                            | (Layout.Vertical()
-                                | Text.Small("End Date")
-                                | endDate.ToDateInput())
+                            | Text.Small("End Date")
+                            | endDate.ToDateInput())
                         | new Button("Run Date Range Simulation",
                             onClick: async (Event<Button> e) =>
                             {
@@ -97,24 +93,12 @@ public class TradingArenaApp : ViewBase
                         | new Button("Cancel",
                             onClick: (Event<Button> e) => { runDateRange.Set(false); },
                             variant: ButtonVariant.Secondary)
-                )
-                .Width(Size.Units(120).Max(1000))
-            : isRunning.Value
-                ? new Card(
-                    Layout.Vertical()
+                : isRunning.Value
+                    ? Layout.Vertical()
                         .Gap(2)
                         | Text.Block("Running simulation... Please wait.")
                         | Text.Block("This may take a few moments depending on the number of agents and trading days.")
-                )
-                : BuildAgentPerformanceViewAsync(selectedDate.Value, selectedAgent.Value).Result)
-            | new Card(
-                Layout.Vertical()
-                    .Gap(2)
-                    | new Button("Run Date Range Simulation",
-                        onClick: (Event<Button> e) => { runDateRange.Set(true); },
-                        variant: ButtonVariant.Outline)
-                )
-                .Width(Size.Units(120).Max(1000));
+                    : BuildAgentPerformanceViewAsync(selectedDate.Value, selectedAgent.Value).Result);
     }
 
     private async Task<object?> BuildAgentPerformanceViewAsync(DateTime date, string agentId)
@@ -137,52 +121,34 @@ public class TradingArenaApp : ViewBase
         
         return Layout.Vertical()
             .Gap(4)
-            | new Card(
-                Layout.Vertical()
-                    .Gap(2)
-                    | Text.H3($"Agent: {agentId}")
-                    | Text.Block($"Date: {date:yyyy-MM-dd}")
-                    | new Separator()
-                    | Layout.Horizontal()
-                        .Gap(4)
-                        | (Layout.Vertical()
-                            | Text.Small("Portfolio Value")
-                            | Text.Large($"${portfolioValue:F2}"))
-                        | (Layout.Vertical()
-                            | Text.Small("Cash")
-                            | Text.Large($"${position.Cash:F2}"))
-                        | (Layout.Vertical()
-                            | Text.Small("Holdings Value")
-                            | Text.Large($"${portfolioValue - position.Cash:F2}"))
-                )
-                .Width(Size.Units(120).Max(1000))
+            | Text.H3($"Agent: {agentId}")
+            | Text.Block($"Date: {date:yyyy-MM-dd}")
+            | Layout.Horizontal()
+                .Gap(4)
+                | (Layout.Vertical()
+                    | Text.Small("Portfolio Value")
+                    | Text.Large($"${portfolioValue:F2}"))
+                | (Layout.Vertical()
+                    | Text.Small("Cash")
+                    | Text.Large($"${position.Cash:F2}"))
+                | (Layout.Vertical()
+                    | Text.Small("Holdings Value")
+                    | Text.Large($"${portfolioValue - position.Cash:F2}"))
+            | new Separator()
             | (positionHistory.Count > 1
-                ? new Card(
-                    Layout.Vertical()
-                        .Gap(2)
-                        | Text.H3("Portfolio Value Over Time")
-                        | BuildPortfolioChartAsync(positionHistory).Result
-                    )
-                    .Width(Size.Units(120).Max(1000))
-                    .Height(Size.Units(30))
+                ? Layout.Vertical()
+                    .Gap(2)
+                    | Text.H3("Portfolio Value Over Time")
+                    | BuildPortfolioChartAsync(positionHistory).Result
                 : null)
-            | new Card(
-                Layout.Vertical()
-                    .Gap(2)
-                    | Text.H3("Current Holdings")
-                    | (position.Holdings.Any()
-                        ? BuildHoldingsTable(position, prices)
-                        : Text.Block("No holdings"))
-                )
-                .Width(Size.Units(120).Max(1000))
-            | new Card(
-                Layout.Vertical()
-                    .Gap(2)
-                    | Text.H3("Trading Log")
-                    | BuildTradingLog(logs)
-                )
-                .Width(Size.Units(120).Max(1000))
-                .Height(Size.Units(40));
+            | new Separator()
+            | Text.H3("Current Holdings")
+            | (position.Holdings.Any()
+                ? BuildHoldingsTable(position, prices)
+                : Text.Block("No holdings"))
+            | new Separator()
+            | Text.H3("Trading Log")
+            | BuildTradingLog(logs);
     }
 
     private object BuildHoldingsTable(Position position, Dictionary<string, StockPrice> prices)
