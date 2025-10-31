@@ -1,0 +1,25 @@
+{
+  "agentType": "BaseAgent",
+  "dateRange": {
+    "initDate": "2025-01-01T00:00:00",
+    "endDate": "2025-01-31T00:00:00"
+  },
+  "models": [
+    {
+      "name": "claude-3-7-sonnet",
+      "baseModel": "claude-3-7-sonnet-20241022",
+      "signature": "claude-3-7-sonnet",
+      "enabled": true
+    }
+  ],
+  "agentConfig": {
+    "maxSteps": 30,
+    "maxRetries": 3,
+    "baseDelay": 1.0,
+    "initialCash": 10000.0
+  },
+  "logConfig": {
+    "logPath": "./Data/Agents"
+  }
+}
+
