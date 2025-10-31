@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "ivy": {
+      "command": "D:\\git\\ivy\\Ivy\\Ivy.Console\\bin\\Debug\\net9.0\\ivy-local.exe",
+      "args": [
+        "mcp"
+      ],
+      "env": {}
+    }
+  }
+}
