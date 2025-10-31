@@ -72,6 +72,9 @@ public class BaseAgentService : IAgentService
 
             try
             {
+                _logger.LogDebug("Agent {AgentId} step {Step}/{MaxSteps} on {Date}", 
+                    agentId, step + 1, config.MaxSteps, date);
+                
                 var action = await DecideActionAsync(context);
                 
                 if (action.Action == ActionType.Hold && step > 0)
@@ -141,54 +144,135 @@ public class BaseAgentService : IAgentService
             throw new InvalidOperationException($"API key not configured for agent {context.AgentId}");
         }
 
-        try
+        // Retry logic
+        var maxRetries = context.Config.MaxRetries;
+        var retryDelay = TimeSpan.FromSeconds(context.Config.BaseDelay);
+
+        for (int attempt = 0; attempt <= maxRetries; attempt++)
         {
-            using var httpClient = new HttpClient();
-            httpClient.DefaultRequestHeaders.Add("x-api-key", context.Config.ApiKey);
-            httpClient.DefaultRequestHeaders.Add("anthropic-version", "2023-06-01");
-
-            var model = context.Config.BaseModel.Contains("claude") 
-                ? context.Config.BaseModel 
-                : "claude-3-5-sonnet-20241022";
-
-            var requestBody = new
+            try
             {
-                model = model,
-                max_tokens = 4096,
-                system = BuildSystemPrompt(context),
-                messages = new[]
+                // Check if it's OpenAI or Anthropic based on model name or base model
+                var isOpenAI = context.Config.BaseModel.Contains("gpt") || 
+                               context.Config.BaseModel.Contains("openai") ||
+                               context.Config.BaseModel.StartsWith("o1");
+
+                if (isOpenAI)
                 {
-                    new
-                    {
-                        role = "user",
-                        content = prompt
-                    }
+                    return await GetOpenAIReasoningAsync(prompt, context);
                 }
-            };
-
-            var json = JsonSerializer.Serialize(requestBody);
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-            var response = await httpClient.PostAsync("https://api.anthropic.com/v1/messages", content);
-            response.EnsureSuccessStatusCode();
-
-            var responseBody = await response.Content.ReadAsStringAsync();
-            var responseDoc = JsonDocument.Parse(responseBody);
-            var root = responseDoc.RootElement;
-
-            var reasoning = root.TryGetProperty("content", out var contentEl)
-                && contentEl.ValueKind == JsonValueKind.Array
-                && contentEl[0].TryGetProperty("text", out var textEl)
-                ? textEl.GetString() ?? ""
-                : "";
-
-            return reasoning;
+                else
+                {
+                    return await GetAnthropicReasoningAsync(prompt, context);
+                }
+            }
+            catch (Exception ex) when (attempt < maxRetries)
+            {
+                _logger.LogWarning(ex, "Attempt {Attempt} failed for agent {AgentId}, retrying...", attempt + 1, context.AgentId);
+                await Task.Delay(retryDelay * (attempt + 1)); // Exponential backoff
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "All retry attempts failed for agent {AgentId}", context.AgentId);
+                throw;
+            }
         }
-        catch (Exception ex)
+
+        throw new InvalidOperationException($"Failed to get reasoning after {maxRetries + 1} attempts");
+    }
+
+    private async Task<string> GetAnthropicReasoningAsync(string prompt, AgentContext context)
+    {
+        using var httpClient = new HttpClient();
+        httpClient.DefaultRequestHeaders.Add("x-api-key", context.Config.ApiKey);
+        httpClient.DefaultRequestHeaders.Add("anthropic-version", "2023-06-01");
+
+        var model = context.Config.BaseModel.Contains("claude") 
+            ? context.Config.BaseModel 
+            : "claude-3-5-sonnet-20241022";
+
+        var requestBody = new
         {
-            _logger.LogError(ex, "Error calling AI model for agent {AgentId}", context.AgentId);
-            throw;
-        }
+            model = model,
+            max_tokens = 4096,
+            system = BuildSystemPrompt(context),
+            messages = new[]
+            {
+                new
+                {
+                    role = "user",
+                    content = prompt
+                }
+            }
+        };
+
+        var json = JsonSerializer.Serialize(requestBody);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        var response = await httpClient.PostAsync("https://api.anthropic.com/v1/messages", content);
+        response.EnsureSuccessStatusCode();
+
+        var responseBody = await response.Content.ReadAsStringAsync();
+        var responseDoc = JsonDocument.Parse(responseBody);
+        var root = responseDoc.RootElement;
+
+        var reasoning = root.TryGetProperty("content", out var contentEl)
+            && contentEl.ValueKind == JsonValueKind.Array
+            && contentEl[0].TryGetProperty("text", out var textEl)
+            ? textEl.GetString() ?? ""
+            : "";
+
+        return reasoning;
+    }
+
+    private async Task<string> GetOpenAIReasoningAsync(string prompt, AgentContext context)
+    {
+        using var httpClient = new HttpClient();
+        httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {context.Config.ApiKey}");
+
+        var model = context.Config.BaseModel.Contains("gpt") 
+            ? context.Config.BaseModel 
+            : "gpt-4o";
+
+        var requestBody = new
+        {
+            model = model,
+            max_tokens = 4096,
+            messages = new[]
+            {
+                new
+                {
+                    role = "system",
+                    content = BuildSystemPrompt(context)
+                },
+                new
+                {
+                    role = "user",
+                    content = prompt
+                }
+            },
+            response_format = new { type = "json_object" } // Encourage JSON response
+        };
+
+        var json = JsonSerializer.Serialize(requestBody);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        var response = await httpClient.PostAsync("https://api.openai.com/v1/chat/completions", content);
+        response.EnsureSuccessStatusCode();
+
+        var responseBody = await response.Content.ReadAsStringAsync();
+        var responseDoc = JsonDocument.Parse(responseBody);
+        var root = responseDoc.RootElement;
+
+        var reasoning = root.TryGetProperty("choices", out var choicesEl)
+            && choicesEl.ValueKind == JsonValueKind.Array
+            && choicesEl.GetArrayLength() > 0
+            && choicesEl[0].TryGetProperty("message", out var messageEl)
+            && messageEl.TryGetProperty("content", out var messageContentEl)
+            ? messageContentEl.GetString() ?? ""
+            : "";
+
+        return reasoning;
     }
 
     private string BuildSystemPrompt(AgentContext context)

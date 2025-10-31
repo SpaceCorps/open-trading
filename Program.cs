@@ -25,6 +25,7 @@ server.Services.AddSingleton<IPositionService, PositionService>();
 server.Services.AddSingleton<IAgentService, BaseAgentService>();
 server.Services.AddSingleton<IConfigService, ConfigService>();
 server.Services.AddSingleton<ILogService, LogService>();
+server.Services.AddSingleton<ISimulationService, SimulationService>();
 
 #if DEBUG
 server.UseHotReload();

@@ -85,6 +85,14 @@ public class ConfigService : IConfigService
                     Signature = "claude-3-7-sonnet",
                     Enabled = true,
                     ApiKey = "secret:ANTHROPIC_API_KEY"
+                },
+                new ModelConfig
+                {
+                    Name = "gpt-4o",
+                    BaseModel = "gpt-4o",
+                    Signature = "gpt-4o",
+                    Enabled = false,
+                    ApiKey = "secret:OPENAI_API_KEY"
                 }
             },
             AgentConfig = new AgentConfigSection

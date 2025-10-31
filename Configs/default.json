@@ -10,6 +10,12 @@
       "baseModel": "claude-3-7-sonnet-20241022",
       "signature": "claude-3-7-sonnet",
       "enabled": true
+    },
+    {
+      "name": "gpt-4o",
+      "baseModel": "gpt-4o",
+      "signature": "gpt-4o",
+      "enabled": false
     }
   ],
   "agentConfig": {
