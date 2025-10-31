@@ -197,6 +197,24 @@ dotnet test
 
 MIT License
 
+## Developer Guide
+
+See [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md) for detailed development information, architecture, and contributing guidelines.
+
+## Features Implemented
+
+✅ Core trading system with buy/sell logic
+✅ Multiple AI agent support (Anthropic & OpenAI)
+✅ Real stock data integration (Alpha Vantage API)
+✅ User secrets for secure API key storage
+✅ Multi-agent parallel execution
+✅ Date range simulation support
+✅ Portfolio tracking and visualization
+✅ Trading logs and history
+✅ Performance comparison across agents
+✅ Retry logic and error handling
+✅ Data persistence in JSONL format
+
 ## Acknowledgments
 
 - Original [AI-Trader](https://github.com/HKUDS/AI-Trader) project
