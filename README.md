@@ -41,9 +41,19 @@ A C# port of the [AI-Trader repository](https://github.com/HKUDS/AI-Trader) usin
 
 ### Configuration
 
-1. Copy `.env.example` (if exists) or set environment variables:
+1. **Set up user secrets** (recommended for API keys):
+   ```bash
+   # Set Alpha Vantage API key
+   dotnet user-secrets set ALPHA_VANTAGE_API_KEY your-api-key-here
+   
+   # Set Anthropic API key (for AI agents)
+   dotnet user-secrets set ANTHROPIC_API_KEY your-api-key-here
+   ```
+
+   Alternatively, you can set environment variables:
    ```bash
    export ANTHROPIC_API_KEY=your-api-key-here
+   export ALPHA_VANTAGE_API_KEY=your-api-key-here
    ```
 
 2. Edit `Configs/default.json` to configure:
@@ -79,6 +89,33 @@ The application will start and open in your browser at `http://localhost:5000` (
 1. Select a stock symbol
 2. Choose a date range
 3. View price charts and historical data
+
+## API Keys
+
+This application requires API keys for:
+
+- **Alpha Vantage** (for stock price data): Get a free API key at [Alpha Vantage](https://www.alphavantage.co/support/#api-key)
+- **Anthropic** (for AI agents): Get an API key at [Anthropic](https://console.anthropic.com/)
+
+### Setting Up User Secrets
+
+User secrets are stored securely and not committed to git:
+
+```bash
+# Set Alpha Vantage API key
+dotnet user-secrets set ALPHA_VANTAGE_API_KEY your-key-here
+
+# Set Anthropic API key  
+dotnet user-secrets set ANTHROPIC_API_KEY your-key-here
+
+# List all secrets
+dotnet user-secrets list
+
+# Remove a secret
+dotnet user-secrets remove ALPHA_VANTAGE_API_KEY
+```
+
+The application will automatically fall back to mock data if API keys are not configured, but real data requires the Alpha Vantage API key.
 
 ## Data Storage
 

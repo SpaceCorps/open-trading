@@ -9,8 +9,10 @@ public class StockDataService : IStockDataService
 {
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<StockDataService> _logger;
+    private readonly IConfiguration? _configuration;
     private readonly Dictionary<string, List<StockPrice>> _cache = new();
     private readonly string _dataPath = "./Data/Prices";
+    private string? _alphaVantageApiKey;
     
     // NASDAQ 100 symbols
     private static readonly string[] Nasda100Symbols = new[]
@@ -27,10 +29,18 @@ public class StockDataService : IStockDataService
         "SOFI", "PLTR", "UPST", "OPEN", "W", "GME", "AMC", "BBBY", "CLOV", "WISH"
     };
 
-    public StockDataService(IHttpClientFactory httpClientFactory, ILogger<StockDataService> logger)
+    public StockDataService(
+        IHttpClientFactory httpClientFactory, 
+        ILogger<StockDataService> logger,
+        IConfiguration? configuration = null)
     {
         _httpClientFactory = httpClientFactory;
         _logger = logger;
+        _configuration = configuration;
+        
+        // Get API key from user secrets or environment variable
+        _alphaVantageApiKey = _configuration?["ALPHA_VANTAGE_API_KEY"] 
+            ?? Environment.GetEnvironmentVariable("ALPHA_VANTAGE_API_KEY");
         
         Directory.CreateDirectory(_dataPath);
     }
@@ -74,9 +84,30 @@ public class StockDataService : IStockDataService
 
         if (!prices.Any())
         {
-            // Generate mock data for testing
-            prices = GenerateMockPrices(symbol, startDate, endDate);
-            await SavePricesToFileAsync(symbol, prices);
+            // Try to fetch from Alpha Vantage API
+            if (!string.IsNullOrEmpty(_alphaVantageApiKey))
+            {
+                try
+                {
+                    prices = await FetchFromAlphaVantageAsync(symbol, startDate, endDate);
+                    if (prices.Any())
+                    {
+                        await SavePricesToFileAsync(symbol, prices);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to fetch data from Alpha Vantage for {Symbol}, falling back to mock data", symbol);
+                }
+            }
+            
+            // Fall back to mock data if API fetch failed or no API key
+            if (!prices.Any())
+            {
+                _logger.LogInformation("Using mock data for {Symbol} - configure ALPHA_VANTAGE_API_KEY for real data", symbol);
+                prices = GenerateMockPrices(symbol, startDate, endDate);
+                await SavePricesToFileAsync(symbol, prices);
+            }
         }
 
         _cache[key] = prices;
@@ -151,11 +182,120 @@ public class StockDataService : IStockDataService
         return prices;
     }
 
+    private async Task<List<StockPrice>> FetchFromAlphaVantageAsync(string symbol, DateTime startDate, DateTime endDate)
+    {
+        if (string.IsNullOrEmpty(_alphaVantageApiKey))
+        {
+            return new List<StockPrice>();
+        }
+
+        var prices = new List<StockPrice>();
+        var client = _httpClientFactory.CreateClient();
+        
+        // Alpha Vantage API endpoint
+        var url = $"https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol={symbol}&apikey={_alphaVantageApiKey}&outputsize=full&datatype=json";
+        
+        try
+        {
+            var response = await client.GetAsync(url);
+            response.EnsureSuccessStatusCode();
+            
+            var json = await response.Content.ReadAsStringAsync();
+            var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+            
+            // Check for API errors
+            if (root.TryGetProperty("Error Message", out var errorMsg))
+            {
+                _logger.LogWarning("Alpha Vantage API error: {Error}", errorMsg.GetString());
+                return prices;
+            }
+            
+            if (root.TryGetProperty("Note", out var note))
+            {
+                _logger.LogWarning("Alpha Vantage API rate limit: {Note}", note.GetString());
+                return prices;
+            }
+            
+            // Parse time series data
+            if (root.TryGetProperty("Time Series (Daily)", out var timeSeries))
+            {
+                foreach (var property in timeSeries.EnumerateObject())
+                {
+                    var dateStr = property.Name;
+                    if (DateTime.TryParse(dateStr, out var date))
+                    {
+                        if (date >= startDate && date <= endDate)
+                        {
+                            var data = property.Value;
+                            if (data.TryGetProperty("1. open", out var openEl) &&
+                                data.TryGetProperty("2. high", out var highEl) &&
+                                data.TryGetProperty("3. low", out var lowEl) &&
+                                data.TryGetProperty("4. close", out var closeEl) &&
+                                data.TryGetProperty("5. volume", out var volumeEl))
+                            {
+                                prices.Add(new StockPrice
+                                {
+                                    Symbol = symbol,
+                                    Date = date,
+                                    Open = decimal.Parse(openEl.GetString() ?? "0"),
+                                    High = decimal.Parse(highEl.GetString() ?? "0"),
+                                    Low = decimal.Parse(lowEl.GetString() ?? "0"),
+                                    Close = decimal.Parse(closeEl.GetString() ?? "0"),
+                                    Volume = long.Parse(volumeEl.GetString() ?? "0")
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Sort by date ascending
+            prices = prices.OrderBy(p => p.Date).ToList();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching data from Alpha Vantage for {Symbol}", symbol);
+            throw;
+        }
+        
+        return prices;
+    }
+
     private async Task SavePricesToFileAsync(string symbol, List<StockPrice> prices)
     {
         var filePath = System.IO.Path.Combine(_dataPath, $"{symbol}.jsonl");
-        var lines = prices.Select(p => JsonSerializer.Serialize(p));
-        await File.WriteAllLinesAsync(filePath, lines);
+        
+        // Read existing prices and merge
+        var existingPrices = new List<StockPrice>();
+        if (File.Exists(filePath))
+        {
+            var lines = await File.ReadAllLinesAsync(filePath);
+            foreach (var line in lines)
+            {
+                if (string.IsNullOrWhiteSpace(line)) continue;
+                try
+                {
+                    var price = JsonSerializer.Deserialize<StockPrice>(line);
+                    if (price != null)
+                    {
+                        existingPrices.Add(price);
+                    }
+                }
+                catch { }
+            }
+        }
+        
+        // Merge and deduplicate
+        var allPrices = existingPrices
+            .Concat(prices)
+            .GroupBy(p => p.Date)
+            .Select(g => g.First())
+            .OrderBy(p => p.Date)
+            .ToList();
+        
+        var linesToWrite = allPrices.Select(p => JsonSerializer.Serialize(p));
+        await File.WriteAllLinesAsync(filePath, linesToWrite);
     }
 }
 

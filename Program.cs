@@ -2,10 +2,19 @@ using OpenTrading.Apps;
 using OpenTrading.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Configuration;
 
 CultureInfo.DefaultThreadCurrentCulture = CultureInfo.DefaultThreadCurrentUICulture = new CultureInfo("en-US");
 
 var server = new Server();
+
+// Configure user secrets (UserSecretsId is set in .csproj)
+var configurationBuilder = new ConfigurationBuilder()
+    .AddUserSecrets("OpenTrading");
+var configuration = configurationBuilder.Build();
+
+// Register configuration
+server.Services.AddSingleton<IConfiguration>(configuration);
 
 // Register services
 server.Services.AddSingleton<IHttpClientFactory, DefaultHttpClientFactory>();

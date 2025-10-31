@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.IO;
+using Microsoft.Extensions.Configuration;
 using OpenTrading.Models;
 
 namespace OpenTrading.Services;
@@ -8,9 +9,11 @@ namespace OpenTrading.Services;
 public class ConfigService : IConfigService
 {
     private readonly string _configPath = "./Configs/default.json";
+    private readonly IConfiguration? _configuration;
 
-    public ConfigService()
+    public ConfigService(IConfiguration? configuration = null)
     {
+        _configuration = configuration;
         Directory.CreateDirectory("./Configs");
     }
 
@@ -36,13 +39,16 @@ public class ConfigService : IConfigService
             return GetDefaultConfig();
         }
 
-        // Resolve API keys from environment variables
+        // Resolve API keys from user secrets or environment variables
         foreach (var model in config.Models)
         {
-            if (model.ApiKey?.StartsWith("env:") == true)
+            if (model.ApiKey?.StartsWith("env:") == true || model.ApiKey?.StartsWith("secret:") == true)
             {
-                var envKey = model.ApiKey.Substring(4);
-                model.ApiKey = Environment.GetEnvironmentVariable(envKey);
+                var key = model.ApiKey.Substring(model.ApiKey.IndexOf(':') + 1);
+                
+                // Try user secrets first, then environment variable
+                var apiKey = _configuration?[key] ?? Environment.GetEnvironmentVariable(key);
+                model.ApiKey = apiKey;
             }
         }
 
@@ -75,10 +81,10 @@ public class ConfigService : IConfigService
                 new ModelConfig
                 {
                     Name = "claude-3-7-sonnet",
-                    BaseModel = "anthropic/claude-3-7-sonnet",
+                    BaseModel = "claude-3-7-sonnet-20241022",
                     Signature = "claude-3-7-sonnet",
                     Enabled = true,
-                    ApiKey = "env:ANTHROPIC_API_KEY"
+                    ApiKey = "secret:ANTHROPIC_API_KEY"
                 }
             },
             AgentConfig = new AgentConfigSection
