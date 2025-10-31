@@ -27,14 +27,33 @@ public class TradingService : ITradingService
 
     public Task<TradingResult> ExecuteTradeAsync(TradingAction action, Position currentPosition)
     {
+        // Validate action
+        if (action.Amount <= 0)
+        {
+            return Task.FromResult(new TradingResult
+            {
+                Success = false,
+                ErrorMessage = "Trade amount must be greater than zero"
+            });
+        }
+
+        if (string.IsNullOrEmpty(action.Symbol))
+        {
+            return Task.FromResult(new TradingResult
+            {
+                Success = false,
+                ErrorMessage = "Stock symbol is required"
+            });
+        }
+
         if (!ValidateTrade(action, currentPosition))
         {
             return Task.FromResult(new TradingResult
             {
                 Success = false,
                 ErrorMessage = action.Action == ActionType.Buy 
-                    ? "Insufficient cash for purchase"
-                    : "Insufficient holdings for sale"
+                    ? $"Insufficient cash for purchase. Required: ${CalculateCost(action.Price, action.Amount):F2}, Available: ${currentPosition.Cash:F2}"
+                    : $"Insufficient holdings for sale. Required: {action.Amount}, Available: {currentPosition.Holdings.GetValueOrDefault(action.Symbol, 0)}"
             });
         }
 

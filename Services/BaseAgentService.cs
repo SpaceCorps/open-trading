@@ -81,12 +81,22 @@ public class BaseAgentService : IAgentService
                 {
                     // Agent decided to hold, stop reasoning
                     log.Message = "Agent decided to hold - ending trading day";
+                    log.Reasoning = action.Reasoning;
                     await _logService.SaveLogAsync(log);
                     break;
                 }
 
                 if (action.Action == ActionType.Buy || action.Action == ActionType.Sell)
                 {
+                    // Validate action before executing
+                    if (string.IsNullOrEmpty(action.Symbol) || action.Amount <= 0)
+                    {
+                        log.Message = $"Invalid action: Symbol={action.Symbol}, Amount={action.Amount}";
+                        log.Reasoning = action.Reasoning;
+                        await _logService.SaveLogAsync(log);
+                        continue;
+                    }
+
                     // Execute trade
                     var result = await _tradingService.ExecuteTradeAsync(action, context.CurrentPosition);
                     
@@ -95,8 +105,12 @@ public class BaseAgentService : IAgentService
                         context.CurrentPosition = result.UpdatedPosition;
                         actions.Add(action);
                         
-                        log.Message = $"{action.Action} {action.Amount} shares of {action.Symbol} at ${action.Price:F2}";
+                        log.Message = $"{action.Action} {action.Amount} shares of {action.Symbol} at ${action.Price:F2} (Total: ${result.Action?.TotalCost ?? 0:F2})";
                         log.Action = action;
+                        log.Reasoning = action.Reasoning;
+                        
+                        _logger.LogInformation("Agent {AgentId} executed {Action} {Amount} shares of {Symbol} at ${Price}",
+                            agentId, action.Action, action.Amount, action.Symbol, action.Price);
                         
                         // Save updated position
                         await _positionService.SavePositionAsync(context.CurrentPosition);
@@ -104,11 +118,15 @@ public class BaseAgentService : IAgentService
                     else
                     {
                         log.Message = $"Trade failed: {result.ErrorMessage}";
+                        log.Reasoning = action.Reasoning;
+                        _logger.LogWarning("Trade failed for agent {AgentId}: {Error}",
+                            agentId, result.ErrorMessage);
                     }
                 }
                 else
                 {
                     log.Message = "Agent decided to hold";
+                    log.Reasoning = action.Reasoning;
                 }
 
                 await _logService.SaveLogAsync(log);
