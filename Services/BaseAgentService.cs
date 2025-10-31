@@ -207,7 +207,7 @@ public class BaseAgentService : IAgentService
 
         var model = context.Config.BaseModel.Contains("claude") 
             ? context.Config.BaseModel 
-            : "claude-3-5-sonnet-20241022";
+            : "claude-sonnet-4-20250514";
 
         var requestBody = new
         {

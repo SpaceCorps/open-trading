@@ -145,9 +145,9 @@ Data/
   },
   "models": [
     {
-      "name": "claude-3-7-sonnet",
-      "baseModel": "claude-3-7-sonnet-20241022",
-      "signature": "claude-3-7-sonnet",
+      "name": "claude-sonnet-4",
+      "baseModel": "claude-sonnet-4-20250514",
+      "signature": "claude-sonnet-4",
       "enabled": true
     }
   ],

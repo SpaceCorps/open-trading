@@ -80,9 +80,9 @@ public class ConfigService : IConfigService
             {
                 new ModelConfig
                 {
-                    Name = "claude-3-7-sonnet",
-                    BaseModel = "claude-3-7-sonnet-20241022",
-                    Signature = "claude-3-7-sonnet",
+                    Name = "claude-sonnet-4",
+                    BaseModel = "claude-sonnet-4-20250514",
+                    Signature = "claude-sonnet-4",
                     Enabled = true,
                     ApiKey = "secret:ANTHROPIC_API_KEY"
                 },
