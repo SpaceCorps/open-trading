@@ -6,5 +6,5 @@ obj/
 
 # Generated data files
 Data/Prices/*.jsonl
-Data/Agents/*.jsonl
+Data/Agents/**/*.jsonl
 Data/Positions/*.jsonl

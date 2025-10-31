@@ -18,16 +18,12 @@ public class StockDataApp : ViewBase
         var endDate = UseState(DateTime.Today);
 
         return Layout.Vertical()
-            .Gap(4)
-            .Padding(2)
             | Text.H2("Stock Price Data")
             | Layout.Horizontal()
-                .Gap(3)
                 | new Field(selectedSymbol.ToSelectInput(symbols.Take(50).ToOptions()), "Symbol")
                 | new Field(startDate.ToDateInput(), "Start Date")
                 | new Field(endDate.ToDateInput(), "End Date")
                 | Layout.Vertical()
-                    .Gap(0)
                     | Text.Block("") // Spacer for button alignment
                     | new Button("Load Data",
                         onClick: async (Event<Button> e) =>
@@ -49,7 +45,6 @@ public class StockDataApp : ViewBase
             return Text.Block($"No price data available for {symbol} in the selected date range");
 
         return Layout.Vertical()
-            .Gap(4)
             | Text.H3($"Price Chart: {symbol}")
             | BuildPriceChart(prices)
             | Text.H3("Price Data Table")
@@ -70,13 +65,15 @@ public class StockDataApp : ViewBase
             })
             .ToArray();
 
-        var chart = chartData.ToLineChart(style: LineChartStyles.Dashboard)
-            .Dimension("Date", e => e.Date)
-            .Measure("Close", e => e.Sum(f => f.Close));
+        // var chart = chartData.ToLineChart(style: LineChartStyles.Dashboard)
+        //     .Dimension("Date", e => e.Date)
+        //     .Measure("Close", e => e.Sum(f => f.Close));
+
+        var chart = new LineChart(chartData, "Date", "Close")
+            .Height(Size.Units(100));
         
         // Wrap in container with explicit height
-        return new Box(chart)
-            .Height(Size.Units(50));
+        return chart;
     }
 
     private object BuildPriceTable(List<StockPrice> prices)
