@@ -22,23 +22,19 @@ public class StockDataApp : ViewBase
             .Padding(2)
             | Text.H2("Stock Price Data")
             | Layout.Horizontal()
-                .Gap(2)
-                | (Layout.Vertical()
-                    | Text.Small("Symbol")
-                    | selectedSymbol.ToSelectInput(symbols.Take(50).ToOptions()))
-                | (Layout.Vertical()
-                    | Text.Small("Start Date")
-                    | startDate.ToDateInput())
-                | (Layout.Vertical()
-                    | Text.Small("End Date")
-                    | endDate.ToDateInput())
-                | new Button("Load Data",
-                    onClick: async (Event<Button> e) =>
-                    {
-                        await _stockDataService?.LoadOrFetchDataAsync(startDate.Value, endDate.Value)!;
-                    },
-                    variant: ButtonVariant.Primary)
-            | new Separator()
+                .Gap(3)
+                | new Field("Symbol", selectedSymbol.ToSelectInput(symbols.Take(50).ToOptions()))
+                | new Field("Start Date", startDate.ToDateInput())
+                | new Field("End Date", endDate.ToDateInput())
+                | Layout.Vertical()
+                    .Gap(0)
+                    | Text.Block("") // Spacer for button alignment
+                    | new Button("Load Data",
+                        onClick: async (Event<Button> e) =>
+                        {
+                            await _stockDataService?.LoadOrFetchDataAsync(startDate.Value, endDate.Value)!;
+                        },
+                        variant: ButtonVariant.Primary)
             | BuildStockDataView(selectedSymbol.Value, startDate.Value, endDate.Value);
     }
 
@@ -56,7 +52,6 @@ public class StockDataApp : ViewBase
             .Gap(4)
             | Text.H3($"Price Chart: {symbol}")
             | BuildPriceChart(prices)
-            | new Separator()
             | Text.H3("Price Data Table")
             | BuildPriceTable(prices);
     }
@@ -75,9 +70,13 @@ public class StockDataApp : ViewBase
             })
             .ToArray();
 
-        return chartData.ToLineChart(style: LineChartStyles.Dashboard)
+        var chart = chartData.ToLineChart(style: LineChartStyles.Dashboard)
             .Dimension("Date", e => e.Date)
             .Measure("Close", e => e.Sum(f => f.Close));
+        
+        // Wrap in container with explicit height
+        return new Box(chart)
+            .Height(Size.Units(50));
     }
 
     private object BuildPriceTable(List<StockPrice> prices)
@@ -87,11 +86,11 @@ public class StockDataApp : ViewBase
             .Select(p => new
             {
                 Date = p.Date.ToString("yyyy-MM-dd"),
-                Open = p.Open,
-                High = p.High,
-                Low = p.Low,
-                Close = p.Close,
-                Volume = p.Volume
+                Open = p.Open.ToString("F2"),
+                High = p.High.ToString("F2"),
+                Low = p.Low.ToString("F2"),
+                Close = p.Close.ToString("F2"),
+                Volume = p.Volume.ToString("N0")
             })
             .AsQueryable();
 
