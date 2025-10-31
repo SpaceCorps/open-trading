@@ -23,9 +23,9 @@ public class StockDataApp : ViewBase
             | Text.H2("Stock Price Data")
             | Layout.Horizontal()
                 .Gap(3)
-                | new Field("Symbol", selectedSymbol.ToSelectInput(symbols.Take(50).ToOptions()))
-                | new Field("Start Date", startDate.ToDateInput())
-                | new Field("End Date", endDate.ToDateInput())
+                | new Field(selectedSymbol.ToSelectInput(symbols.Take(50).ToOptions()), "Symbol")
+                | new Field(startDate.ToDateInput(), "Start Date")
+                | new Field(endDate.ToDateInput(), "End Date")
                 | Layout.Vertical()
                     .Gap(0)
                     | Text.Block("") // Spacer for button alignment
