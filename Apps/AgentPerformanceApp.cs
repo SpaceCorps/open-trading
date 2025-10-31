@@ -98,13 +98,12 @@ public class AgentPerformanceApp : ViewBase
                 ReturnPercent = (double)p.ReturnPercent,
                 Trades = (int)p.Trades
             })
-            .ToArray();
+            .AsQueryable();
 
         return Layout.Vertical()
             .Gap(4)
             | new Card(
-                typedData.ToTable()
-                    .Width(Size.Full())
+                typedData.ToDataTable()
                     .Header(p => p.Agent, "Agent")
                     .Header(p => p.StartValue, "Start Value")
                     .Header(p => p.EndValue, "End Value")

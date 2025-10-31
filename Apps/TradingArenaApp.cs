@@ -128,8 +128,7 @@ public class TradingArenaApp : ViewBase
             .OrderByDescending(h => h.Value)
             .AsQueryable();
 
-        return holdingsData.ToTable()
-            .Width(Size.Full())
+        return holdingsData.ToDataTable()
             .Header(h => h.Symbol, "Symbol")
             .Header(h => h.Shares, "Shares")
             .Header(h => h.Price, "Current Price")
@@ -154,8 +153,7 @@ public class TradingArenaApp : ViewBase
             })
             .AsQueryable();
 
-        return logData.ToTable()
-            .Width(Size.Full())
+        return logData.ToDataTable()
             .Header(l => l.Step, "Step")
             .Header(l => l.Time, "Time")
             .Header(l => l.Message, "Message")
