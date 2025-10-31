@@ -78,12 +78,12 @@ public class PositionService : IPositionService
         await File.AppendAllTextAsync(filePath, json + Environment.NewLine);
     }
 
-    public Task<Dictionary<string, decimal>> CalculatePortfolioValueAsync(string agentId, DateTime date, List<StockPrice> prices)
+    public async Task<Dictionary<string, decimal>> CalculatePortfolioValueAsync(string agentId, DateTime date, List<StockPrice> prices)
     {
-        var position = GetCurrentPositionAsync(agentId, date).Result;
+        var position = await GetCurrentPositionAsync(agentId, date);
         if (position == null)
         {
-            return Task.FromResult(new Dictionary<string, decimal>());
+            return new Dictionary<string, decimal>();
         }
 
         var priceDict = prices.ToDictionary(p => p.Symbol, p => p.Close);
@@ -93,7 +93,7 @@ public class PositionService : IPositionService
         );
         portfolioValue["CASH"] = position.Cash;
 
-        return Task.FromResult(portfolioValue);
+        return portfolioValue;
     }
 
     public async Task<List<Position>> GetPositionHistoryAsync(string agentId, DateTime startDate, DateTime endDate)
