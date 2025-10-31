@@ -3,3 +3,8 @@ obj/
 *.sln.iml
 .idea/**/*
 **/.idea/*
+
+# Generated data files
+Data/Prices/*.jsonl
+Data/Agents/*.jsonl
+Data/Positions/*.jsonl
