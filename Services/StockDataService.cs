@@ -161,16 +161,37 @@ public class StockDataService : IStockDataService
     public async Task LoadOrFetchDataAsync(DateTime startDate, DateTime endDate)
     {
         var symbols = await GetSymbolsAsync();
-        foreach (var symbol in symbols)
+        _logger.LogInformation("Loading/fetching data for {Count} symbols from {StartDate} to {EndDate}", 
+            symbols.Count, startDate, endDate);
+
+        // Use parallel processing for better performance (but respect API rate limits)
+        var semaphore = new SemaphoreSlim(5); // Limit concurrent API calls
+        var tasks = symbols.Select(async symbol =>
         {
-            var prices = await GetDailyPricesAsync(symbol, startDate, endDate);
-            if (!prices.Any())
+            await semaphore.WaitAsync();
+            try
             {
-                // Generate mock data
-                var mockPrices = GenerateMockPrices(symbol, startDate, endDate);
-                await SavePricesToFileAsync(symbol, mockPrices);
+                var prices = await GetDailyPricesAsync(symbol, startDate, endDate);
+                if (!prices.Any())
+                {
+                    // Generate mock data if no API data available
+                    var mockPrices = GenerateMockPrices(symbol, startDate, endDate);
+                    await SavePricesToFileAsync(symbol, mockPrices);
+                    _logger.LogDebug("Generated mock data for {Symbol}", symbol);
+                }
             }
-        }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to load/fetch data for {Symbol}", symbol);
+            }
+            finally
+            {
+                semaphore.Release();
+            }
+        });
+
+        await Task.WhenAll(tasks);
+        _logger.LogInformation("Completed loading/fetching data for all symbols");
     }
 
     private List<StockPrice> GenerateMockPrices(string symbol, DateTime startDate, DateTime endDate)
