@@ -30,11 +30,13 @@ public class AgentPerformanceApp : ViewBase
             .Padding(2)
             | Text.H2("Agent Performance Comparison")
             | Layout.Horizontal()
-                .Gap(2)
+                .Gap(4)
                 | (Layout.Vertical()
+                    .Width(Size.Units(200))
                     | Text.Small("Start Date")
                     | startDate.ToDateInput())
                 | (Layout.Vertical()
+                    .Width(Size.Units(200))
                     | Text.Small("End Date")
                     | endDate.ToDateInput())
             | new Separator()
@@ -111,6 +113,9 @@ public class AgentPerformanceApp : ViewBase
                 .Align(p => p.Return, Align.Right)
                 .Align(p => p.ReturnPercent, Align.Right)
             | new Separator()
+            | Text.H3("Portfolio Growth Over Time")
+            | BuildPortfolioGrowthChart(agents, startDate, endDate)
+            | new Separator()
             | Text.H3("Return Comparison")
             | BuildPerformanceChart(performanceData);
     }
@@ -131,6 +136,49 @@ public class AgentPerformanceApp : ViewBase
             | chartData.ToBarChart()
                 .Dimension("Agent", e => e.Agent)
                 .Measure("ReturnPercent", e => e.Sum(f => f.ReturnPercent));
+    }
+
+    private object BuildPortfolioGrowthChart(List<string> agents, DateTime startDate, DateTime endDate)
+    {
+        if (_positionService == null || _stockDataService == null)
+            return Text.Block("Services not initialized");
+
+        var allChartData = new List<(DateTime Date, decimal PortfolioValue)>();
+
+        foreach (var agent in agents)
+        {
+            var positions = _positionService.GetPositionHistoryAsync(agent, startDate, endDate).Result;
+            if (!positions.Any())
+                continue;
+
+            foreach (var position in positions.OrderBy(p => p.Date))
+            {
+                var prices = _stockDataService.GetPricesForDateAsync(position.Date).Result;
+                var portfolioValue = position.GetPortfolioValue(
+                    prices.ToDictionary(p => p.Key, p => p.Value.Close));
+                allChartData.Add((position.Date, portfolioValue));
+            }
+        }
+
+        if (!allChartData.Any())
+            return Text.Block("No portfolio growth data available");
+
+        // Aggregate by date - average portfolio value across all agents for each date
+        var chartData = allChartData
+            .GroupBy(d => d.Date)
+            .Select(g => new
+            {
+                Date = g.Key,
+                PortfolioValue = g.Average(d => d.PortfolioValue)
+            })
+            .OrderBy(d => d.Date)
+            .ToArray();
+
+        return Layout.Vertical()
+            .Height(Size.Units(120))
+            | chartData.ToLineChart(style: LineChartStyles.Dashboard)
+                .Dimension("Date", e => e.Date)
+                .Measure("PortfolioValue", e => e.Sum(f => f.PortfolioValue));
     }
 }
 
