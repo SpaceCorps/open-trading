@@ -42,6 +42,7 @@ public class ConfigService : IConfigService
         // Resolve API keys from user secrets or environment variables
         foreach (var model in config.Models)
         {
+            // If ApiKey is already set with a prefix (env: or secret:), resolve it
             if (model.ApiKey?.StartsWith("env:") == true || model.ApiKey?.StartsWith("secret:") == true)
             {
                 var key = model.ApiKey.Substring(model.ApiKey.IndexOf(':') + 1);
@@ -49,6 +50,30 @@ public class ConfigService : IConfigService
                 // Try user secrets first, then environment variable
                 var apiKey = _configuration?[key] ?? Environment.GetEnvironmentVariable(key);
                 model.ApiKey = apiKey;
+            }
+            // If ApiKey is null or empty, auto-resolve based on model type
+            else if (string.IsNullOrEmpty(model.ApiKey))
+            {
+                string? secretKey = null;
+                
+                // Determine which API key to use based on the model
+                if (model.BaseModel.Contains("claude", StringComparison.OrdinalIgnoreCase) ||
+                    model.BaseModel.Contains("anthropic", StringComparison.OrdinalIgnoreCase))
+                {
+                    secretKey = "ANTHROPIC_API_KEY";
+                }
+                else if (model.BaseModel.Contains("gpt", StringComparison.OrdinalIgnoreCase) ||
+                         model.BaseModel.Contains("openai", StringComparison.OrdinalIgnoreCase))
+                {
+                    secretKey = "OPENAI_API_KEY";
+                }
+                
+                if (secretKey != null)
+                {
+                    // Try user secrets first, then environment variable
+                    var apiKey = _configuration?[secretKey] ?? Environment.GetEnvironmentVariable(secretKey);
+                    model.ApiKey = apiKey;
+                }
             }
         }
 

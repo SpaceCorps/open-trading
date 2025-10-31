@@ -1,7 +1,7 @@
 using OpenTrading.Models;
 using OpenTrading.Services;
 
-namespace OpenTrading.Apps;
+namespace OpenTrading.Apps.Simulations;
 
 [App(icon: Icons.TrendingUp, title: "Agent Performance")]
 public class AgentPerformanceApp : ViewBase
@@ -21,7 +21,7 @@ public class AgentPerformanceApp : ViewBase
         var endDate = UseState(config.DateRange.EndDate);
 
         var agents = config.Models.Where(m => m.Enabled).Select(m => m.Name).ToList();
-        
+
         if (!agents.Any())
             return Text.Block("No enabled agents found");
 
@@ -56,17 +56,17 @@ public class AgentPerformanceApp : ViewBase
 
             var initialPosition = positions.First();
             var finalPosition = positions.Last();
-            
+
             var prices = _stockDataService.GetPricesForDateAsync(finalPosition.Date).Result;
             var finalValue = finalPosition.GetPortfolioValue(
                 prices.ToDictionary(p => p.Key, p => p.Value.Close));
-            
+
             var initialPrices = _stockDataService.GetPricesForDateAsync(initialPosition.Date).Result;
             var initialValue = initialPosition.GetPortfolioValue(
                 initialPrices.ToDictionary(p => p.Key, p => p.Value.Close));
 
-            var returnPercent = initialValue > 0 
-                ? ((finalValue - initialValue) / initialValue) * 100 
+            var returnPercent = initialValue > 0
+                ? ((finalValue - initialValue) / initialValue) * 100
                 : 0;
 
             performanceData.Add(new
@@ -88,10 +88,10 @@ public class AgentPerformanceApp : ViewBase
             .Select(p => new
             {
                 Agent = (string)p.Agent,
-                StartValue = (decimal)p.StartValue,
-                EndValue = (decimal)p.EndValue,
-                Return = (decimal)p.Return,
-                ReturnPercent = (double)p.ReturnPercent,
+                StartValue = "$" + ((decimal)p.StartValue).ToString("N2"),
+                EndValue = "$" + ((decimal)p.EndValue).ToString("N2"),
+                Return = "$" + ((decimal)p.Return).ToString("N2"),
+                ReturnPercent = ((double)p.ReturnPercent).ToString("F2"),
                 Trades = (int)p.Trades
             })
             .AsQueryable();
@@ -126,9 +126,11 @@ public class AgentPerformanceApp : ViewBase
             })
             .ToArray();
 
-        return chartData.ToBarChart()
-            .Dimension("Agent", e => e.Agent)
-            .Measure("ReturnPercent", e => e.Sum(f => f.ReturnPercent));
+        return Layout.Vertical()
+            .Height(Size.Units(120))
+            | chartData.ToBarChart()
+                .Dimension("Agent", e => e.Agent)
+                .Measure("ReturnPercent", e => e.Sum(f => f.ReturnPercent));
     }
 }
 

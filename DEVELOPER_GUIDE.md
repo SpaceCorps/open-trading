@@ -110,7 +110,7 @@ Edit `Configs/default.json` to:
 
 ### Anthropic (Claude)
 - Direct HTTP integration
-- Models: claude-sonnet-4, claude-sonnet-4-20250514, etc.
+- Models: claude-sonnet-4, claude-sonnet-4-5, etc.
 - System prompts for trading instructions
 
 ### OpenAI (GPT)

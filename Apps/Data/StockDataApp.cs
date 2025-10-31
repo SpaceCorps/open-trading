@@ -1,7 +1,7 @@
 using OpenTrading.Models;
 using OpenTrading.Services;
 
-namespace OpenTrading.Apps;
+namespace OpenTrading.Apps.Data;
 
 [App(icon: Icons.TrendingUp, title: "Stock Data")]
 public class StockDataApp : ViewBase
@@ -69,11 +69,11 @@ public class StockDataApp : ViewBase
         //     .Dimension("Date", e => e.Date)
         //     .Measure("Close", e => e.Sum(f => f.Close));
 
-        var chart = new LineChart(chartData, "Date", "Close")
-            .Height(Size.Units(100));
+        var chart = new LineChart(chartData, "Date", "Close");
         
-        // Wrap in container with explicit height
-        return chart;
+        return Layout.Vertical()
+            .Height(Size.Units(120))
+            | chart;
     }
 
     private object BuildPriceTable(List<StockPrice> prices)

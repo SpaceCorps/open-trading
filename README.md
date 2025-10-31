@@ -146,7 +146,7 @@ Data/
   "models": [
     {
       "name": "claude-sonnet-4",
-      "baseModel": "claude-sonnet-4-20250514",
+      "baseModel": "claude-sonnet-4",
       "signature": "claude-sonnet-4",
       "enabled": true
     }

@@ -3,7 +3,7 @@ using OpenTrading.Services;
 using System.Collections.Immutable;
 using System.Diagnostics;
 
-namespace OpenTrading.Apps;
+namespace OpenTrading.Apps.Simulations;
 
 [App(icon: Icons.DollarSign, title: "Trading Arena")]
 public class TradingArenaApp : ViewBase

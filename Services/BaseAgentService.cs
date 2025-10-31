@@ -228,17 +228,42 @@ public class BaseAgentService : IAgentService
         var content = new StringContent(json, Encoding.UTF8, "application/json");
 
         var response = await httpClient.PostAsync("https://api.anthropic.com/v1/messages", content);
-        response.EnsureSuccessStatusCode();
+        
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync();
+            _logger.LogError("Claude API error ({StatusCode}): {ErrorBody}. Model used: {Model}", 
+                response.StatusCode, errorBody, model);
+            response.EnsureSuccessStatusCode();
+        }
 
         var responseBody = await response.Content.ReadAsStringAsync();
         var responseDoc = JsonDocument.Parse(responseBody);
         var root = responseDoc.RootElement;
 
-        var reasoning = root.TryGetProperty("content", out var contentEl)
+        // Parse response according to Claude API documentation
+        // Response structure: { "content": [{ "type": "text", "text": "..." }] }
+        var reasoning = "";
+        if (root.TryGetProperty("content", out var contentEl) 
             && contentEl.ValueKind == JsonValueKind.Array
-            && contentEl[0].TryGetProperty("text", out var textEl)
-            ? textEl.GetString() ?? ""
-            : "";
+            && contentEl.GetArrayLength() > 0)
+        {
+            // Extract text from all content blocks (in case of multiple blocks)
+            foreach (var block in contentEl.EnumerateArray())
+            {
+                if (block.TryGetProperty("type", out var typeEl) 
+                    && typeEl.GetString() == "text"
+                    && block.TryGetProperty("text", out var textEl))
+                {
+                    reasoning += textEl.GetString() ?? "";
+                }
+            }
+        }
+
+        if (string.IsNullOrEmpty(reasoning))
+        {
+            _logger.LogWarning("Empty or invalid response from Claude API: {Response}", responseBody);
+        }
 
         return reasoning;
     }

@@ -1,4 +1,4 @@
-using OpenTrading.Apps;
+using OpenTrading.Apps.Simulations;
 using OpenTrading.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
